@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Marco</title>
+<meta name="theme-color" content="#06070B">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#06070B;--tx:#F2F3F7;--mu:#9095A3;--dim:#555B69;
+  --neon:#7DF9FF;--neon2:#B388FF;--warm:#FFC857;--ok:#5CFF9D;
+  --glass:rgba(255,255,255,.035);--glass2:rgba(255,255,255,.06);--line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.14);
+  --r:20px;--mono:"JetBrains Mono",ui-monospace,monospace;
+  --a1:#1C6FFF;--a2:#8A3CFF;--a3:#00C2B8;
+}
+/* cor por aba: muda o neon, a lâmpada e as luzes do fundo */
+body[data-view="cal"]{--neon:#FF8A3D;--neon2:#FF8A3D;--a1:#FF6A1F;--a2:#FF7A2E;--a3:#FF8A3D}
+body[data-view="sis"]{--neon:#5CFF9D;--neon2:#5CFF9D;--a1:#00C97A;--a2:#1ED98A;--a3:#5CFF9D}
+body[data-view="rev"]{--neon:#FF2E4C;--neon2:#FF2E4C;--a1:#8F0A24;--a2:#C4102F;--a3:#FF2E4C}
+body[data-view="rev"] .ambient i{opacity:.32}
+body[data-view="rev"] .ambient:after{background:radial-gradient(ellipse at 50% 0%,rgba(255,46,76,.06),transparent 55%),linear-gradient(rgba(6,7,11,.3),rgba(6,7,11,.75))}
+body[data-view="rev"] .edge .c{opacity:.16}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{background:transparent;color:var(--tx);font-family:Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:120px;min-height:100vh;overflow-x:hidden}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+
+/* ambiente: luzes de fundo */
+.ambient{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
+.ambient i{position:absolute;border-radius:50%;filter:blur(90px);opacity:.6;animation:drift 22s ease-in-out infinite alternate;transition:background 1.2s ease}
+.ambient i:nth-child(1){width:52vw;height:52vw;left:-14vw;top:-18vw;background:var(--a1)}
+.ambient i:nth-child(2){width:46vw;height:46vw;right:-16vw;top:22vh;background:var(--a2);animation-delay:-8s}
+.ambient i:nth-child(3){width:40vw;height:40vw;left:22vw;bottom:-22vw;background:var(--a3);animation-delay:-15s;opacity:.28}
+
+/* luz de contorno com mau contato: bordas de cima e da direita, em degradê */
+.edge{position:fixed;top:0;right:0;width:100vw;height:100vh;pointer-events:none;z-index:5;opacity:var(--l,1)}
+.edge .t{position:absolute;top:0;right:0;height:2px;width:58vw;background:linear-gradient(to left,var(--neon) 0%,var(--neon) 18%,transparent 100%);box-shadow:0 0 10px var(--neon),0 0 28px var(--neon),0 0 60px color-mix(in srgb,var(--neon) 60%,transparent);transition:background .6s,box-shadow .6s}
+.edge .r{position:absolute;top:0;right:0;width:2px;height:62vh;background:linear-gradient(to bottom,var(--neon) 0%,var(--neon) 18%,transparent 100%);box-shadow:0 0 10px var(--neon),0 0 28px var(--neon),0 0 60px color-mix(in srgb,var(--neon) 60%,transparent);transition:background .6s,box-shadow .6s}
+.edge .c{position:absolute;top:-25vh;right:-25vw;width:80vw;height:80vh;background:radial-gradient(circle at top right,var(--neon) 0%,transparent 55%);opacity:.22;filter:blur(50px);transition:background .6s}
+@media(max-width:720px){.edge .t{width:80vw}.edge .r{height:45vh}.edge .c{width:120vw;height:60vh}}
+.ambient:after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(255,255,255,.05),transparent 55%),linear-gradient(rgba(6,7,11,.05),rgba(6,7,11,.5))}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(6vw,4vh) scale(1.12)}}
+.grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+.wrap{max-width:1120px;margin:0 auto;padding:24px 16px}
+header.top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.logo{display:flex;align-items:center;gap:12px}
+.logo .mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,rgba(125,249,255,.18),rgba(179,136,255,.18));border:1px solid var(--line2);display:grid;place-items:center;box-shadow:0 0 24px rgba(125,249,255,.18),inset 0 0 12px rgba(255,255,255,.04)}
+.logo .mark i{display:block;width:16px;height:2px;background:var(--neon);box-shadow:0 0 8px var(--neon),0 0 18px var(--neon)}
+.logo b{font-weight:900;font-size:21px;letter-spacing:.14em}
+.logo small{display:block;font-weight:500;color:var(--mu);font-size:12px;letter-spacing:.02em;margin-top:1px;text-transform:capitalize}
+.who{display:flex;gap:8px;align-items:center}
+
+.glass{background:var(--glass);border:1px solid var(--line);border-radius:var(--r);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 20px 50px rgba(0,0,0,.35)}
+
+.quote{margin:20px 0 8px;padding:22px 24px;position:relative;overflow:hidden}
+.quote:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--neon);box-shadow:0 0 14px var(--neon),0 0 30px var(--neon);transition:.6s}
+.quote .lbl,.logo .mark,.logo .mark i,.stat:after,.sec,nav.bn button.act svg{transition:color .6s,background .6s,box-shadow .6s,text-shadow .6s}
+.quote.back:before{background:var(--ok);box-shadow:0 0 14px var(--ok),0 0 30px var(--ok)}
+.quote .lbl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.2em;color:var(--neon);font-weight:700;text-shadow:0 0 10px rgba(125,249,255,.6)}
+.quote.back .lbl{color:var(--ok);text-shadow:0 0 10px rgba(92,255,157,.6)}
+.quote p{font-size:21px;font-weight:700;line-height:1.35;margin-top:8px;letter-spacing:-.015em}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+@media(max-width:720px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{padding:16px 18px;position:relative;overflow:hidden}
+.stat:after{content:"";position:absolute;right:-30px;top:-30px;width:90px;height:90px;border-radius:50%;background:var(--neon2);filter:blur(40px);opacity:.25}
+.stat .v{font-size:30px;font-weight:900;letter-spacing:-.04em;font-family:var(--mono)}
+.stat .v span{color:var(--dim);font-size:18px}
+.stat .k{font-size:12px;color:var(--mu);margin-top:4px;line-height:1.35}
+
+h2{font-size:15px;font-weight:800;margin:30px 0 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;letter-spacing:-.01em}
+h2 .sub{font-size:12px;color:var(--mu);font-weight:500}
+.card{padding:18px 18px 18px 22px;position:relative;overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s}
+.card:hover{border-color:var(--line2);transform:translateY(-2px)}
+.card .bar{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c);box-shadow:0 0 14px var(--c),0 0 28px var(--c)}
+.card .halo{position:absolute;left:-60px;top:-60px;width:180px;height:180px;border-radius:50%;background:var(--c);filter:blur(60px);opacity:.18;pointer-events:none;transition:opacity .4s}
+.card.done .halo{opacity:.38}
+.card.done{box-shadow:0 0 0 1px color-mix(in srgb,var(--c) 35%,transparent),0 0 40px color-mix(in srgb,var(--c) 18%,transparent),0 20px 50px rgba(0,0,0,.35)}
+.cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.spread{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;position:relative}
+.name{font-weight:800;font-size:17px;letter-spacing:-.015em}
+.meta{color:var(--mu);font-size:13.5px;line-height:1.6;margin-top:7px;position:relative}
+.meta b{color:var(--tx);font-weight:600}
+.btns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;position:relative}
+.btn{border:1px solid var(--line2);background:var(--glass2);font-size:14px;font-weight:600;padding:11px 15px;border-radius:13px;transition:all .2s;backdrop-filter:blur(10px)}
+.btn:hover{background:rgba(255,255,255,.1)}
+.btn:active{transform:scale(.97)}
+.btn.on{background:var(--c);border-color:var(--c);color:#06070B;box-shadow:0 0 18px var(--c),0 0 40px color-mix(in srgb,var(--c) 50%,transparent);animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
+.btn.on.min{background:color-mix(in srgb,var(--c) 30%,transparent);border-color:color-mix(in srgb,var(--c) 70%,transparent);color:var(--tx);box-shadow:0 0 14px color-mix(in srgb,var(--c) 50%,transparent)}
+@keyframes pop{0%{transform:scale(.9)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+.btn.primary{background:var(--tx);color:var(--bg);border-color:var(--tx);box-shadow:0 0 24px rgba(255,255,255,.18)}
+.btn.neon{background:linear-gradient(135deg,var(--neon),var(--neon2));color:#06070B;border:0;box-shadow:0 0 24px rgba(125,249,255,.35),0 0 50px rgba(179,136,255,.25);font-weight:800}
+.btn.ghost{background:transparent}
+.btn.sm{font-size:13px;padding:8px 12px;border-radius:11px}
+.btn.danger{color:#FF8E8E}
+.chip{font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;background:var(--glass2);border:1px solid var(--line);color:var(--mu);white-space:nowrap}
+.chip.warm{color:var(--warm);border-color:rgba(255,200,87,.35);box-shadow:0 0 12px rgba(255,200,87,.15)}
+.chip.ok{color:var(--ok);border-color:rgba(92,255,157,.4);box-shadow:0 0 14px rgba(92,255,157,.25)}
+.chip.sel{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.cdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:1px;box-shadow:0 0 8px currentColor}
+.note{font-size:13px;color:var(--mu);margin-top:12px;line-height:1.5}
+.empty{text-align:center;padding:40px 20px;color:var(--mu);line-height:1.6}
+.empty .name{color:var(--tx);margin-bottom:6px}
+.banner{font-size:12.5px;color:var(--mu);border:1px dashed var(--line2);border-radius:14px;padding:11px 14px;margin-top:14px;line-height:1.5}
+
+/* calendário */
+.yearnav{display:flex;align-items:center;gap:8px;font-weight:900;font-size:22px;letter-spacing:-.02em;font-family:var(--mono)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
+.filters button{cursor:pointer}
+.months{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.month{padding:13px}
+.month h3{font-size:13px;font-weight:800;margin-bottom:8px;text-transform:capitalize;display:flex;justify-content:space-between}
+.month h3 span{color:var(--dim);font-weight:600;font-family:var(--mono)}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.wd{font-size:10px;color:var(--dim);text-align:center;font-weight:700;padding-bottom:2px}
+.day{aspect-ratio:1;border-radius:6px;background:rgba(255,255,255,.05);display:flex;overflow:hidden;border:0;padding:0;transition:transform .15s}
+.day:hover{transform:scale(1.15);z-index:1}
+.day.lit{box-shadow:0 0 10px var(--g)}
+.day.fut{opacity:.25;cursor:default}
+.day.fut:hover{transform:none}
+.day.today{outline:1.5px solid var(--tx);outline-offset:1px}
+.day.blank{background:transparent;cursor:default}
+.day i{flex:1;display:block}
+.day i.min{opacity:.4}
+
+/* revisão */
+.dots{display:grid;grid-template-columns:repeat(7,26px);gap:5px;margin-top:12px;position:relative}
+.dot{width:26px;height:26px;border-radius:8px;background:rgba(255,255,255,.06)}
+.dot.on{box-shadow:0 0 10px var(--d)}
+.dot.min{opacity:.4;box-shadow:none}
+.dl{font-size:10px;color:var(--dim);text-align:center;font-weight:700}
+.plan{margin-top:12px;background:rgba(255,200,87,.07);border:1px solid rgba(255,200,87,.2);border-radius:13px;padding:11px 13px;font-size:13px;line-height:1.5;color:var(--mu);position:relative}
+.plan b{color:var(--warm)}
+
+/* nav */
+nav.bn{position:fixed;left:50%;transform:translateX(-50%);bottom:max(14px,env(safe-area-inset-bottom));display:flex;gap:4px;background:rgba(14,16,24,.72);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:1px solid var(--line2);padding:6px;border-radius:20px;z-index:20;box-shadow:0 10px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.06)}
+nav.bn button{border:0;background:transparent;padding:10px 14px;border-radius:14px;color:var(--mu);font-weight:600;font-size:12.5px;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:74px;transition:.2s}
+nav.bn button svg{width:20px;height:20px}
+nav.bn button.act{background:rgba(255,255,255,.08);color:var(--tx);text-shadow:0 0 10px rgba(125,249,255,.5)}
+nav.bn button.act svg{color:var(--neon);filter:drop-shadow(0 0 6px var(--neon))}
+
+/* modal */
+.ov{position:fixed;inset:0;background:rgba(3,4,8,.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:flex-end;justify-content:center;z-index:50}
+.ov.open{display:flex}
+.sheet{background:rgba(16,18,27,.92);border:1px solid var(--line2);border-radius:26px 26px 0 0;width:100%;max-width:580px;max-height:92vh;overflow:auto;padding:24px 22px calc(24px + env(safe-area-inset-bottom));box-shadow:0 -20px 80px rgba(0,0,0,.6);animation:up .35s cubic-bezier(.2,1,.3,1)}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@media(min-width:720px){.ov{align-items:center}.sheet{border-radius:26px}}
+.sheet h3{font-size:20px;font-weight:900;letter-spacing:-.02em}
+.sheet .lead{color:var(--mu);font-size:13px;margin-top:4px;line-height:1.5}
+label{display:block;font-size:12px;color:var(--mu);font-weight:600;margin:16px 0 6px}
+input,textarea{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--tx);border-radius:12px;padding:12px 13px;font:inherit;font-size:15px;outline:none;transition:.2s}
+input:focus,textarea:focus{border-color:var(--neon);box-shadow:0 0 0 3px rgba(125,249,255,.12),0 0 16px rgba(125,249,255,.15)}
+textarea{min-height:60px;resize:vertical;line-height:1.45}
+.two{display:grid;grid-template-columns:1fr 120px;gap:10px}
+.hint{font-size:12px;color:var(--dim);margin-top:5px;line-height:1.4}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.sw{width:32px;height:32px;border-radius:50%;border:0;transition:.2s;box-shadow:0 0 10px currentColor}
+.sw.sel{transform:scale(1.2);box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--tx),0 0 18px currentColor}
+.sec{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.2em;color:var(--neon);font-weight:700;margin-top:24px;padding-top:16px;border-top:1px solid var(--line)}
+.dayrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.seg3{display:flex;background:rgba(255,255,255,.05);border-radius:12px;padding:3px;gap:2px}
+.seg3 button{border:0;background:transparent;padding:8px 10px;border-radius:9px;font-size:12.5px;font-weight:600;color:var(--mu);transition:.2s}
+.seg3 button.on{background:var(--c);color:#06070B;box-shadow:0 0 12px var(--c)}
+.seg3 button.on.min{background:color-mix(in srgb,var(--c) 35%,transparent);color:var(--tx)}
+.seg3 button.on.none{background:rgba(255,255,255,.1);color:var(--tx);box-shadow:none}
+
+/* ===== intro: a linha que falha e volta ===== */
+.intro{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden}
+.intro.hide{animation:fadeout .7s ease forwards}
+@keyframes fadeout{to{opacity:0;visibility:hidden}}
+.intro .glow{position:absolute;left:50%;top:50%;width:70vw;height:30vh;transform:translate(-50%,-50%);background:radial-gradient(ellipse,rgba(125,249,255,.22),transparent 60%);filter:blur(30px);opacity:0;animation:glowin 1.2s ease 2.6s forwards}
+@keyframes glowin{to{opacity:1}}
+.intro .line{position:absolute;left:0;top:50%;height:2px;width:0;background:var(--neon);box-shadow:0 0 8px var(--neon),0 0 24px var(--neon),0 0 60px rgba(125,249,255,.6);animation:line 3.6s cubic-bezier(.4,0,.2,1) forwards}
+@keyframes line{
+  0%{width:0;opacity:1}
+  40%{width:62%;opacity:1}
+  46%{width:62%;opacity:.15}
+  50%{width:62%;opacity:1}
+  54%{width:62%;opacity:0}
+  62%{width:62%;opacity:0}
+  66%{width:62%;opacity:1;box-shadow:0 0 12px var(--neon),0 0 40px var(--neon),0 0 100px var(--neon)}
+  80%{width:100%;opacity:1}
+  100%{width:100%;opacity:.9}
+}
+.intro .brand{position:relative;text-align:center;margin-bottom:26vh;opacity:0;animation:brand 1.1s ease 3s forwards}
+@keyframes brand{from{opacity:0;transform:translateY(14px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
+.intro h1{font-size:clamp(56px,14vw,120px);font-weight:900;letter-spacing:.22em;padding-left:.22em;line-height:1;text-shadow:0 0 12px rgba(125,249,255,.9),0 0 40px rgba(125,249,255,.55),0 0 90px rgba(179,136,255,.5);animation:flicker 5s linear 4.2s infinite}
+@keyframes flicker{0%,97%,100%{opacity:1}97.5%{opacity:.6}98%{opacity:1}98.6%{opacity:.75}99%{opacity:1}}
+.intro p{margin-top:18px;font-size:clamp(15px,2.6vw,20px);font-weight:600;letter-spacing:.06em;color:var(--mu);opacity:0;animation:brand .9s ease 3.7s forwards}
+.intro .skip{position:absolute;bottom:max(28px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);font-size:12px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;font-family:var(--mono);opacity:0;animation:brand 1s ease 4.4s forwards}
+@media(prefers-reduced-motion:reduce){.intro *{animation-duration:.01s!important;animation-delay:0s!important}.ambient i{animation:none}}
+
+/* login + toast */
+.login{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:60;padding:24px}
+.login.open{display:flex}
+.login .box{max-width:400px;text-align:center;padding:36px 28px}
+.login h1{font-size:40px;font-weight:900;letter-spacing:.2em;padding-left:.2em;text-shadow:0 0 14px rgba(125,249,255,.8),0 0 40px rgba(179,136,255,.5)}
+.login .tag{color:var(--tx);font-weight:600;margin-top:10px;letter-spacing:.04em}
+.login p{color:var(--mu);margin:14px 0 26px;line-height:1.55;font-size:14px}
+.toast{position:fixed;left:50%;bottom:104px;transform:translateX(-50%) translateY(20px);background:rgba(20,22,32,.85);backdrop-filter:blur(16px);border:1px solid var(--line2);color:var(--tx);font-weight:600;font-size:14px;padding:12px 18px;border-radius:14px;opacity:0;pointer-events:none;transition:.3s;z-index:70;max-width:90vw;text-align:center;box-shadow:0 0 30px rgba(125,249,255,.15),0 10px 40px rgba(0,0,0,.5)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.view{display:none}.view.act{display:block;animation:vin .35s ease}
+@keyframes vin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* confete de luz ao marcar */
+.spark{position:fixed;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:80;animation:spark .8s ease-out forwards}
+@keyframes spark{to{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0}}
+</style>
+</head>
+<body>
+<div class="ambient"><i></i><i></i><i></i></div>
+<div class="grain"></div>
+<div class="edge" id="edge"><div class="c"></div><div class="t"></div><div class="r"></div></div>
+
+<div class="intro" id="intro" onclick="endIntro()">
+  <div class="glow"></div>
+  <div class="line"></div>
+  <div class="brand">
+    <h1>MARCO</h1>
+    <p>Não negocie com você mesmo.</p>
+  </div>
+  <div class="skip">toque pra entrar</div>
+</div>
+
+<div class="wrap">
+  <header class="top">
+    <div class="logo"><div class="mark" onclick="replayIntro()" title="Rever abertura"><i></i></div><div><b>MARCO</b><small id="hdate"></small></div></div>
+    <div class="who" id="who"></div>
+  </header>
+  <div class="quote glass" id="quote"></div>
+
+  <section class="view act" id="v-hoje"></section>
+  <section class="view" id="v-cal"></section>
+  <section class="view" id="v-sis"></section>
+  <section class="view" id="v-rev"></section>
+</div>
+
+<nav class="bn" id="nav">
+  <button data-v="hoje" class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>Hoje</button>
+  <button data-v="cal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Calendário</button>
+  <button data-v="sis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M4 12h16M4 17h7"/><circle cx="18" cy="7" r="2"/><circle cx="15" cy="17" r="2"/></svg>Sistemas</button>
+  <button data-v="rev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V11M10 19V5M16 19v-6M22 19H2"/></svg>Revisão</button>
+</nav>
+
+<!-- Modal: sistema -->
+<div class="ov" id="m-sys" onclick="if(event.target===this)closeM('m-sys')">
+  <div class="sheet">
+    <h3 id="sys-title">Novo sistema</h3>
+    <p class="lead">Um sistema = um hábito. Gatilho dispara, processo executa, rastreio registra.</p>
+
+    <label>Nome do sistema</label>
+    <input id="f-name" placeholder="Ex: Leitura" maxlength="40">
+
+    <label>Cor</label>
+    <div class="swatches" id="f-colors"></div>
+
+    <div class="sec">01 · Gatilho</div>
+    <label>Depois que eu…</label>
+    <input id="f-trigger" placeholder="Ex: pegar minha xícara de café da manhã">
+    <div class="hint">Algo que já acontece na sua rotina e vai disparar a ação.</div>
+
+    <div class="sec">02 · Processo</div>
+    <div class="two">
+      <div><label>Eu vou…</label><input id="f-process" placeholder="Ex: ler meu livro"></div>
+      <div><label>Minutos</label><input id="f-min" type="number" min="0" inputmode="numeric" placeholder="20"></div>
+    </div>
+    <div class="two">
+      <div><label>Versão mínima (dia ruim)</label><input id="f-minver" placeholder="Ex: ler uma página"></div>
+      <div><label>Minutos</label><input id="f-minmin" type="number" min="0" inputmode="numeric" placeholder="2"></div>
+    </div>
+    <div class="hint">A versão mínima mantém o dia aceso (num tom mais fraco) sem você se enganar.</div>
+
+    <div class="sec">03 · Rastreio</div>
+    <label>Como vou registrar</label>
+    <input id="f-track" placeholder="Ex: marcar aqui no app logo depois de fechar o livro">
+
+    <div class="sec">Plano pra falha</div>
+    <label>Se acontecer… eu vou…</label>
+    <textarea id="f-plan" placeholder="Ex: Se eu viajar, leio no celular antes de dormir."></textarea>
+    <div class="hint">Decida antes como você volta. Aparece quando o sistema falha.</div>
+
+    <div class="btns" style="justify-content:space-between;margin-top:22px">
+      <button class="btn ghost danger" id="f-del" onclick="deleteSystem()">Excluir</button>
+      <div class="row">
+        <button class="btn ghost" onclick="closeM('m-sys')">Cancelar</button>
+        <button class="btn neon" onclick="saveSystemForm()">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: dia -->
+<div class="ov" id="m-day" onclick="if(event.target===this)closeM('m-day')">
+  <div class="sheet" id="day-body"></div>
+</div>
+
+<!-- Login -->
+<div class="login" id="login">
+  <div class="box glass">
+    <h1>MARCO</h1>
+    <div class="tag">Não negocie com você mesmo.</div>
+    <p>Entre pra sincronizar seus sistemas entre celular e computador.</p>
+    <button class="btn neon" style="width:100%;padding:15px" onclick="signIn()">Entrar com Google</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ CONFIGURAÇÃO ============
+   Preencha com os dados do seu projeto Supabase (Project Settings → API).
+   Vazio = modo local (dados só neste navegador).                         */
+const SUPABASE_URL = '';
+const SUPABASE_ANON_KEY = '';
+const MAX_ACTIVE = 3;
+/* ====================================== */
+
+const COLORS = ['#7DF9FF','#B388FF','#5CFF9D','#FF6EC7','#FFC857','#FF7A59','#4DA3FF','#C6FF4D','#FF4D6D','#2EE6D6'];
+
+const QUOTES = [
+  'Não negocie com você mesmo.',
+  'O gatilho disparou. Não pensa. Faz.',
+  'Você não precisa de vontade. Precisa de começar.',
+  'Caiu? Volta. Hoje. Sem negociar.',
+  'Falhar uma vez é acidente. Duas é escolha.',
+  'Ninguém vem te salvar. Levanta.',
+  'O dia ruim não é desculpa. É o dia da versão mínima.',
+  'Motivação é pra amador. Você tem sistema.',
+  'Uma página. Um minuto. Mas hoje.',
+  'Quem adia uma vez, adia pra sempre.',
+  'O calendário não mente. Acende ele.',
+  'Você sabe o que tem que fazer. Então faz.',
+  'Começar é fácil. Voltar é pra poucos. Seja dos poucos.',
+  'Sua mente vai inventar motivo. Ignora e vai.',
+  'Disciplina é fazer com raiva, com sono, com preguiça. Fazer.',
+  'O você de amanhã tá assistindo. Não decepciona.',
+  'Pequeno demais pra falhar. Grande demais pra ignorar.',
+  'Não existe depois. Existe agora ou nunca.',
+  'Sequência bonita não paga. Volta rápida, sim.',
+  'A desculpa é boa? Ótimo. Faz mesmo assim.',
+  'Você já negociou demais. Hoje não.',
+  'O sistema tá pronto. Só falta você aparecer.',
+  'Proteja o gatilho. O resto obedece.',
+  'Não é sobre querer. É sobre ter decidido.',
+  'Cansado também faz. Só faz menor.',
+  'Quem rastreia, enxerga. Quem enxerga, não foge.',
+  'Marco Aurélio escrevia todo dia. Você consegue marcar um botão.',
+  'Seja a pessoa que volta.',
+  'Feito. Registrado. Próximo.',
+  'Nada de amanhã. Acende o dia.'
+];
+const COMEBACK = [
+  'Você voltou. É isso. Agora não deixa virar dois.',
+  'A falha ficou pra trás. A volta é o que vai pro calendário.',
+  'Voltar é a habilidade. Você acabou de usar.',
+  'Quem volta rápido nunca perde de verdade.',
+  'O sistema aguentou a queda. Você também. Segue.',
+  'De volta à linha. Não sai mais.'
+];
+
+/* ---------- utilidades ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y,m-1,d); };
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const diffDays = (a,b) => Math.round((parse(b) - parse(a)) / 864e5);
+const today = () => ymd(new Date());
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x'?r:(r&3|8)).toString(16); }));
+const num = (n,d=1) => n.toLocaleString('pt-BR',{maximumFractionDigits:d,minimumFractionDigits:0});
+const fmtMin = m => m < 60 ? `${m} min` : `${Math.floor(m/60)}h${m%60 ? ' '+pad(m%60) : ''}`;
+const dayOfYear = () => { const n = new Date(); return Math.floor((n - new Date(n.getFullYear(),0,0)) / 864e5); };
+
+/* ---------- intro ---------- */
+let introTimer;
+function endIntro(){ const i = $('#intro'); if (!i || i.classList.contains('hide')) return; i.classList.add('hide'); clearTimeout(introTimer); setTimeout(() => i.remove(), 800); }
+function replayIntro(){
+  if ($('#intro')) return;
+  const d = document.createElement('div'); d.className = 'intro'; d.id = 'intro'; d.onclick = endIntro;
+  d.innerHTML = '<div class="glow"></div><div class="line"></div><div class="brand"><h1>MARCO</h1><p>Não negocie com você mesmo.</p></div><div class="skip">toque pra entrar</div>';
+  document.body.prepend(d); introTimer = setTimeout(endIntro, 6500);
+}
+(function(){
+  let seen = false; try { seen = sessionStorage.getItem('marco-intro') === '1'; sessionStorage.setItem('marco-intro','1'); } catch(e){}
+  if (seen) { $('#intro').remove(); } else { introTimer = setTimeout(endIntro, 6500); }
+})();
+
+/* ---------- estado ---------- */
+const S = { systems:[], logs:[], user:null, cloud:false, view:'hoje', year:new Date().getFullYear(), filter:'all', editing:null, color:COLORS[0], dayOpen:null };
+let LM = {};
+let sb = null;
+
+function buildLM(){ LM = {}; for (const l of S.logs) (LM[l.system_id] ??= {})[l.date] = l.kind; }
+const getLog = (sid,date) => LM[sid]?.[date];
+const datesOf = sid => Object.keys(LM[sid] || {}).filter(d => d <= today()).sort();
+
+function streak(sid){
+  let d = new Date();
+  if (!getLog(sid, ymd(d))) d = addDays(d,-1);
+  let n = 0;
+  while (getLog(sid, ymd(d))) { n++; d = addDays(d,-1); }
+  return n;
+}
+function returns(sid){
+  const ds = datesOf(sid), out = [];
+  for (let i=1;i<ds.length;i++){ const g = diffDays(ds[i-1],ds[i]) - 1; if (g > 0) out.push({gap:g, date:ds[i], sid}); }
+  return out;
+}
+function status(s){
+  const t = today(), y = ymd(addDays(new Date(),-1));
+  const before = datesOf(s.id).filter(d => d < t);
+  if (getLog(s.id,t)) {
+    const last = before[before.length-1];
+    return (last && diffDays(last,t) > 1) ? 'voltou' : 'feito';
+  }
+  if (before.length && !getLog(s.id,y)) return 'voltar';
+  return 'pendente';
+}
+
+/* ---------- armazenamento ---------- */
+const LKEY = 'marco-v1';
+const local = {
+  read(){ try { return JSON.parse(localStorage.getItem(LKEY)) || JSON.parse(localStorage.getItem('sistema-disciplina-v1')) || {systems:[],logs:[]}; } catch(e){ return {systems:[],logs:[]}; } },
+  write(){ try { localStorage.setItem(LKEY, JSON.stringify({systems:S.systems, logs:S.logs})); } catch(e){} }
+};
+async function fetchAll(table){
+  let out = [], from = 0; const step = 1000;
+  for(;;){
+    const { data, error } = await sb.from(table).select('*').range(from, from+step-1);
+    if (error) throw error;
+    out = out.concat(data);
+    if (data.length < step) break;
+    from += step;
+  }
+  return out;
+}
+const SYS_FIELDS = ['id','name','color','trigger','process','minutes','min_version','min_minutes','tracking','failure_plan','active','created_at'];
+const store = {
+  async load(){
+    if (!S.cloud) { const d = local.read(); S.systems = d.systems; S.logs = d.logs; return; }
+    const [sys, logs] = await Promise.all([fetchAll('systems'), fetchAll('logs')]);
+    S.systems = sys.sort((a,b) => String(a.created_at).localeCompare(String(b.created_at)));
+    S.logs = logs.map(l => ({system_id:l.system_id, date:l.date, kind:l.kind}));
+  },
+  async saveSystem(s){
+    if (!S.cloud) return local.write();
+    const row = {}; SYS_FIELDS.forEach(k => row[k] = s[k]); row.user_id = S.user.id;
+    const { error } = await sb.from('systems').upsert(row); if (error) throw error;
+  },
+  async deleteSystem(id){
+    if (!S.cloud) return local.write();
+    const { error } = await sb.from('systems').delete().eq('id', id); if (error) throw error;
+  },
+  async setLog(system_id, date, kind){
+    if (!S.cloud) return local.write();
+    if (!kind) { const { error } = await sb.from('logs').delete().eq('system_id',system_id).eq('date',date); if (error) throw error; }
+    else { const { error } = await sb.from('logs').upsert({user_id:S.user.id, system_id, date, kind}, {onConflict:'system_id,date'}); if (error) throw error; }
+  }
+};
+async function safe(p){ try { await p; } catch(e){ toast('Não salvou: ' + (e.message || e)); await reload(); } }
+async function reload(){ try { await store.load(); } catch(e){ toast('Erro ao carregar: ' + (e.message || e)); } render(); }
+
+/* ---------- efeitos ---------- */
+function sparks(x, y, color){
+  for (let i=0;i<14;i++){
+    const s = document.createElement('div'); s.className = 'spark';
+    const a = Math.random()*Math.PI*2, r = 40 + Math.random()*70;
+    s.style.cssText = `left:${x}px;top:${y}px;background:${color};box-shadow:0 0 8px ${color};--dx:${Math.cos(a)*r}px;--dy:${Math.sin(a)*r}px`;
+    document.body.appendChild(s); setTimeout(() => s.remove(), 900);
+  }
+}
+
+/* ---------- ações ---------- */
+function setLog(sid, date, kind, ev){
+  S.logs = S.logs.filter(l => !(l.system_id===sid && l.date===date));
+  if (kind) S.logs.push({system_id:sid, date, kind});
+  buildLM(); render();
+  if (S.dayOpen === date) renderDay();
+  const s = S.systems.find(x => x.id===sid);
+  if (kind && ev && s) sparks(ev.clientX, ev.clientY, s.color);
+  if (kind && date === today() && s && status(s)==='voltou') toast('Você voltou. Agora não deixa virar dois.');
+  safe(store.setLog(sid, date, kind));
+}
+function toggleToday(sid, kind, ev){ const t = today(); setLog(sid, t, getLog(sid,t)===kind ? null : kind, ev); }
+
+function toggleActive(id){
+  const s = S.systems.find(x => x.id===id); if (!s) return;
+  if (!s.active && S.systems.filter(x => x.active).length >= MAX_ACTIVE) { toast(`Máximo de ${MAX_ACTIVE} sistemas ativos. Pausa um antes.`); return; }
+  s.active = !s.active; render(); safe(store.saveSystem(s));
+}
+
+/* ---------- modal sistema ---------- */
+function openSystem(id){
+  const s = id ? S.systems.find(x => x.id===id) : null;
+  S.editing = s ? s.id : null;
+  const used = new Set(S.systems.map(x => x.color));
+  S.color = s ? s.color : (COLORS.find(c => !used.has(c)) || COLORS[0]);
+  $('#sys-title').textContent = s ? 'Editar sistema' : 'Novo sistema';
+  $('#f-name').value = s?.name || '';
+  $('#f-trigger').value = s?.trigger || '';
+  $('#f-process').value = s?.process || '';
+  $('#f-min').value = s?.minutes ?? '';
+  $('#f-minver').value = s?.min_version || '';
+  $('#f-minmin').value = s?.min_minutes ?? '';
+  $('#f-track').value = s?.tracking || '';
+  $('#f-plan').value = s?.failure_plan || '';
+  $('#f-del').style.visibility = s ? 'visible' : 'hidden';
+  renderSwatches(); openM('m-sys');
+  setTimeout(() => $('#f-name').focus(), 50);
+}
+function renderSwatches(){
+  $('#f-colors').innerHTML = COLORS.map(c => `<button class="sw ${c===S.color?'sel':''}" style="background:${c};color:${c}" onclick="S.color='${c}';renderSwatches()" aria-label="cor"></button>`).join('');
+}
+function saveSystemForm(){
+  const name = $('#f-name').value.trim(), trigger = $('#f-trigger').value.trim(), process = $('#f-process').value.trim();
+  if (!name || !trigger || !process) { toast('Preencha nome, gatilho e processo.'); return; }
+  const data = {
+    name, trigger, process, color:S.color,
+    minutes: parseInt($('#f-min').value) || 0,
+    min_version: $('#f-minver').value.trim(),
+    min_minutes: parseInt($('#f-minmin').value) || 0,
+    tracking: $('#f-track').value.trim(),
+    failure_plan: $('#f-plan').value.trim()
+  };
+  let s;
+  if (S.editing) { s = S.systems.find(x => x.id===S.editing); Object.assign(s, data); }
+  else {
+    const canActivate = S.systems.filter(x => x.active).length < MAX_ACTIVE;
+    s = { id:uid(), created_at:new Date().toISOString(), active:canActivate, ...data };
+    S.systems.push(s);
+    if (!canActivate) toast(`Salvo como pausado: já tem ${MAX_ACTIVE} sistemas ativos.`);
+  }
+  closeM('m-sys'); render(); safe(store.saveSystem(s));
+}
+function deleteSystem(){
+  const s = S.systems.find(x => x.id===S.editing); if (!s) return;
+  if (!confirm(`Excluir "${s.name}" e todo o histórico dele? Não dá pra desfazer.`)) return;
+  S.systems = S.systems.filter(x => x.id!==s.id);
+  S.logs = S.logs.filter(l => l.system_id!==s.id);
+  buildLM(); closeM('m-sys'); render(); safe(store.deleteSystem(s.id));
+}
+
+/* ---------- modal dia ---------- */
+function openDay(d){ S.dayOpen = d; renderDay(); openM('m-day'); }
+function renderDay(){
+  const d = S.dayOpen; if (!d) return;
+  const label = parse(d).toLocaleDateString('pt-BR',{weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  const sys = S.systems.filter(s => s.active || getLog(s.id,d));
+  $('#day-body').innerHTML = `
+    <h3 style="text-transform:capitalize">${esc(label)}</h3>
+    <p class="lead">Ajuste o registro deste dia.</p>
+    ${sys.length ? sys.map(s => { const k = getLog(s.id,d); return `
+      <div class="dayrow">
+        <div class="name" style="font-size:15px"><span class="cdot" style="background:${s.color};color:${s.color}"></span>${esc(s.name)}</div>
+        <div class="seg3" style="--c:${s.color}">
+          <button class="${!k?'on none':''}" onclick="setLog('${s.id}','${d}',null)">Nada</button>
+          <button class="${k==='min'?'on min':''}" onclick="setLog('${s.id}','${d}','min',event)">Mínimo</button>
+          <button class="${k==='full'?'on':''}" onclick="setLog('${s.id}','${d}','full',event)">Completo</button>
+        </div>
+      </div>`; }).join('') : '<p class="note">Nenhum sistema ativo.</p>'}
+    <div class="btns" style="justify-content:flex-end"><button class="btn primary" onclick="closeM('m-day')">Pronto</button></div>`;
+}
+
+function openM(id){ $('#'+id).classList.add('open'); }
+function closeM(id){ $('#'+id).classList.remove('open'); if (id==='m-day') S.dayOpen = null; }
+
+/* ---------- render ---------- */
+function render(){
+  buildLM();
+  $('#hdate').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long', day:'numeric', month:'long'});
+  renderWho(); renderQuote();
+  renderHoje(); renderCal(); renderSis(); renderRev();
+}
+
+function renderWho(){
+  if (S.cloud && S.user) {
+    const nm = (S.user.user_metadata?.full_name || S.user.email || '').split(' ')[0];
+    $('#who').innerHTML = `<span class="chip">${esc(nm)}</span> <button class="btn sm ghost" onclick="signOut()">Sair</button>`;
+  } else $('#who').innerHTML = `<span class="chip">Modo local</span>`;
+}
+
+/* luz de contorno: falha irregular, nunca ritmada */
+(function flicker(){
+  const lamp = $('#edge'); if (!lamp) return;
+  const set = v => lamp.style.setProperty('--l', v);
+  const r = (a,b) => a + Math.random()*(b-a);
+  function calm(){ set(r(.85,1)); setTimeout(Math.random() < .25 ? glitch : calm, r(120,900)); }
+  function glitch(){
+    const n = Math.floor(r(2,7)); let i = 0;
+    (function step(){
+      if (i++ >= n) { set(1); setTimeout(calm, r(1500,6000)); return; }
+      set(Math.random() < .5 ? r(0,.15) : r(.5,1)); setTimeout(step, r(30,140));
+    })();
+  }
+  calm();
+})();
+
+function renderQuote(){
+  const back = S.systems.some(s => s.active && status(s)==='voltou');
+  const list = back ? COMEBACK : QUOTES;
+  const q = list[dayOfYear() % list.length];
+  const el = $('#quote');
+  el.className = 'quote glass' + (back ? ' back' : '');
+  el.innerHTML = `<div class="lbl">${back ? '// você voltou' : '// hoje'}</div><p>${esc(q)}</p>`;
+}
+
+function stats(){
+  const act = S.systems.filter(s => s.active);
+  const maxStreak = act.length ? Math.max(...act.map(s => streak(s.id))) : 0;
+  const gaps = S.systems.flatMap(s => returns(s.id));
+  const avg = gaps.length ? gaps.reduce((a,g) => a+g.gap, 0) / gaps.length : null;
+  const ym = today().slice(0,7);
+  let mins = 0;
+  for (const l of S.logs) if (l.date.startsWith(ym)) {
+    const s = S.systems.find(x => x.id===l.system_id); if (!s) continue;
+    mins += l.kind==='full' ? (+s.minutes||0) : (+s.min_minutes||0);
+  }
+  return { act, maxStreak, gaps, avg, mins };
+}
+
+function renderHoje(){
+  const st = stats();
+  const t = today();
+  const cards = st.act.map(s => {
+    const k = getLog(s.id,t), stt = status(s), sk = streak(s.id);
+    const chip = stt==='voltou' ? '<span class="chip ok">Voltou</span>'
+      : stt==='voltar' ? '<span class="chip warm">Dia de voltar</span>'
+      : sk ? `<span class="chip">${sk} ${sk===1?'dia':'dias'} seguidos</span>` : '';
+    return `
+    <div class="card glass ${k?'done':''}" style="--c:${s.color}">
+      <div class="bar"></div><div class="halo"></div>
+      <div class="spread"><div class="name">${esc(s.name)}</div>${chip}</div>
+      <div class="meta">Depois que eu <b>${esc(s.trigger)}</b>, eu vou <b>${esc(s.process)}</b>${s.minutes ? ` por ${s.minutes} min` : ''}.</div>
+      ${stt==='voltar' && s.failure_plan ? `<div class="plan"><b>Plano pra falha:</b> ${esc(s.failure_plan)}</div>` : ''}
+      <div class="btns">
+        <button class="btn ${k==='full'?'on':''}" onclick="toggleToday('${s.id}','full',event)">${k==='full'?'✓ ':''}Completo</button>
+        ${s.min_version ? `<button class="btn ${k==='min'?'on min':''}" onclick="toggleToday('${s.id}','min',event)">${k==='min'?'✓ ':''}Mínimo · ${esc(s.min_version)}</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  const doneToday = st.act.filter(s => getLog(s.id,t)).length;
+
+  $('#v-hoje').innerHTML = `
+    <div class="stats">
+      <div class="stat glass"><div class="v">${st.act.length}<span>/${MAX_ACTIVE}</span></div><div class="k">Sistemas ativos</div></div>
+      <div class="stat glass"><div class="v">${st.maxStreak}</div><div class="k">Melhor sequência atual (dias)</div></div>
+      <div class="stat glass"><div class="v">${st.avg===null ? '—' : num(st.avg)}</div><div class="k">${st.avg===null ? 'Tempo médio de retorno' : `Dias, em média, pra voltar (${st.gaps.length} ${st.gaps.length===1?'volta':'voltas'})`}</div></div>
+      <div class="stat glass"><div class="v">${fmtMin(st.mins)}</div><div class="k">Produzido este mês</div></div>
+    </div>
+    <h2>Hoje <span class="sub">${st.act.length ? `${doneToday} de ${st.act.length} feitos` : ''}</span></h2>
+    ${st.act.length ? `<div class="cols">${cards}</div><p class="note">Regra de ouro: nunca falhar dois dias seguidos. Dia ruim é dia de versão mínima.</p>`
+      : `<div class="card glass empty"><div class="name">Nenhum sistema ainda</div>Crie seu primeiro sistema com gatilho, processo e rastreio.<div class="btns" style="justify-content:center"><button class="btn neon" onclick="openSystem()">Criar sistema</button></div></div>`}
+    ${!S.cloud ? `<div class="banner glass">Modo local: os dados ficam só neste navegador. Preencha <b>SUPABASE_URL</b> e <b>SUPABASE_ANON_KEY</b> no código pra sincronizar com login.</div>` : ''}`;
+}
+
+function renderCal(){
+  const y = S.year, t = today();
+  if (S.filter!=='all' && !S.systems.some(s => s.id===S.filter)) S.filter = 'all';
+  const sys = S.filter==='all' ? S.systems : S.systems.filter(s => s.id===S.filter);
+  const wd = ['D','S','T','Q','Q','S','S'].map(x => `<div class="wd">${x}</div>`).join('');
+  const activeDays = new Set();
+  let months = '';
+  for (let m=0;m<12;m++){
+    const first = new Date(y,m,1), nd = new Date(y,m+1,0).getDate();
+    let cells = '', mcount = 0;
+    for (let i=0;i<first.getDay();i++) cells += '<div class="day blank"></div>';
+    for (let d=1; d<=nd; d++){
+      const ds = ymd(new Date(y,m,d));
+      const lit = sys.filter(s => getLog(s.id,ds));
+      const segs = lit.map(s => `<i class="${getLog(s.id,ds)==='min'?'min':''}" style="background:${s.color}"></i>`).join('');
+      if (segs) { activeDays.add(ds); mcount++; }
+      const fut = ds > t;
+      const glow = lit.length ? `--g:${lit[0].color}` : '';
+      cells += `<button class="day ${fut?'fut':''} ${ds===t?'today':''} ${lit.length?'lit':''}" style="${glow}" ${fut?'disabled':`onclick="openDay('${ds}')"`} title="${d}/${m+1}">${segs}</button>`;
+    }
+    const mn = first.toLocaleDateString('pt-BR',{month:'long'});
+    months += `<div class="month glass"><h3>${mn}<span>${mcount||''}</span></h3><div class="grid">${wd}${cells}</div></div>`;
+  }
+  const chips = [`<button class="chip ${S.filter==='all'?'sel':''}" onclick="S.filter='all';renderCal()">Todos</button>`]
+    .concat(S.systems.map(s => `<button class="chip ${S.filter===s.id?'sel':''}" onclick="S.filter='${s.id}';renderCal()"><span class="cdot" style="background:${s.color};color:${s.color}"></span>${esc(s.name)}</button>`)).join('');
+  $('#v-cal').innerHTML = `
+    <h2 style="margin-top:22px"><span class="yearnav"><button class="btn sm ghost" onclick="S.year--;renderCal()">‹</button>${y}<button class="btn sm ghost" onclick="S.year++;renderCal()">›</button></span>
+      <span class="sub">${activeDays.size} ${activeDays.size===1?'dia aceso':'dias acesos'}</span></h2>
+    <div class="filters">${chips}</div>
+    ${S.systems.length ? '' : '<p class="note">Crie um sistema pra começar a acender o calendário.</p>'}
+    <div class="months">${months}</div>
+    <p class="note">Cor cheia = completo · cor fraca = versão mínima · toque num dia pra ajustar.</p>`;
+}
+
+function renderSis(){
+  const act = S.systems.filter(s => s.active).length;
+  const card = s => `
+    <div class="card glass" style="--c:${s.color};${s.active?'':'opacity:.55'}">
+      <div class="bar"></div><div class="halo"></div>
+      <div class="spread"><div class="name">${esc(s.name)}</div><span class="chip">${s.active ? 'Ativo' : 'Pausado'}</span></div>
+      <div class="meta">
+        <div><b>Gatilho:</b> depois que eu ${esc(s.trigger)}</div>
+        <div><b>Processo:</b> ${esc(s.process)}${s.minutes ? ` · ${s.minutes} min` : ''}</div>
+        ${s.min_version ? `<div><b>Mínimo:</b> ${esc(s.min_version)}${s.min_minutes ? ` · ${s.min_minutes} min` : ''}</div>` : ''}
+        ${s.tracking ? `<div><b>Rastreio:</b> ${esc(s.tracking)}</div>` : ''}
+        ${s.failure_plan ? `<div><b>Plano pra falha:</b> ${esc(s.failure_plan)}</div>` : ''}
+      </div>
+      <div class="btns">
+        <button class="btn sm" onclick="openSystem('${s.id}')">Editar</button>
+        <button class="btn sm ghost" onclick="toggleActive('${s.id}')">${s.active ? 'Pausar' : 'Ativar'}</button>
+      </div>
+    </div>`;
+  $('#v-sis').innerHTML = `
+    <h2>Sistemas <span class="row"><span class="sub">${act}/${MAX_ACTIVE} ativos</span><button class="btn sm neon" onclick="openSystem()">+ Novo</button></span></h2>
+    ${S.systems.length ? `<div class="cols">${S.systems.map(card).join('')}</div>` : '<div class="card glass empty">Nenhum sistema criado.</div>'}
+    <p class="note">No máximo ${MAX_ACTIVE} sistemas ativos ao mesmo tempo. Abrir muitos de uma vez é o jeito mais rápido de quebrar todos.</p>`;
+}
+
+function renderRev(){
+  const days = [...Array(7)].map((_,i) => ymd(addDays(new Date(), i-6)));
+  const letters = days.map(d => ['D','S','T','Q','Q','S','S'][parse(d).getDay()]);
+  const act = S.systems.filter(s => s.active);
+  const rows = act.map(s => {
+    const created = (s.created_at || '').slice(0,10);
+    const valid = days.filter(d => !created || d >= created);
+    const marks = days.map(d => getLog(s.id,d));
+    const done = marks.filter(Boolean).length;
+    const mins = marks.filter(k => k==='min').length;
+    const miss = valid.filter(d => !getLog(s.id,d) && d < today()).length;
+    return { s, marks, done, mins, miss };
+  });
+  const weekReturns = S.systems.flatMap(s => returns(s.id)).filter(g => g.date >= days[0]);
+  const best = [...rows].sort((a,b) => b.done-a.done)[0];
+  const worst = [...rows].filter(r => r.miss>0).sort((a,b) => b.miss-a.miss)[0];
+
+  $('#v-rev').innerHTML = `
+    <h2>Revisão semanal <span class="sub">últimos 7 dias</span></h2>
+    ${rows.length ? `
+    <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:0">
+      <div class="stat glass"><div class="v">${rows.reduce((a,r)=>a+r.done,0)}</div><div class="k">Registros na semana</div></div>
+      <div class="stat glass"><div class="v">${weekReturns.length}</div><div class="k">${weekReturns.length===1?'Volta':'Voltas'} depois de falha</div></div>
+      <div class="stat glass"><div class="v" style="font-size:18px;padding-top:6px;font-family:Inter">${best && best.done ? esc(best.s.name) : '—'}</div><div class="k">Sistema mais firme</div></div>
+      <div class="stat glass"><div class="v" style="font-size:18px;padding-top:6px;font-family:Inter">${worst ? esc(worst.s.name) : '—'}</div><div class="k">${worst ? 'Pede ajuste' : 'Nenhuma falha'}</div></div>
+    </div>
+    <div class="cols" style="margin-top:14px">${rows.map(r => `
+      <div class="card glass" style="--c:${r.s.color}">
+        <div class="bar"></div><div class="halo"></div>
+        <div class="spread"><div class="name">${esc(r.s.name)}</div><span class="chip">${r.done}/7${r.mins ? ` · ${r.mins} mín.` : ''}</span></div>
+        <div class="dots">${r.marks.map(k => `<div class="dot ${k?'on':''} ${k==='min'?'min':''}" style="${k?`background:${r.s.color};--d:${r.s.color}`:''}"></div>`).join('')}${letters.map(l => `<div class="dl">${l}</div>`).join('')}</div>
+        ${r.miss >= 2 ? `<div class="plan">${r.s.failure_plan ? `<b>Plano pra falha:</b> ${esc(r.s.failure_plan)}` : `<b>${r.miss} falhas na semana.</b> Revisa se o gatilho tá disparando, ou cria um plano pra falha.`}</div>` : ''}
+      </div>`).join('')}
+    </div>
+    <p class="note">Perguntas da revisão: qual gatilho não disparou? O processo tá grande demais? A versão mínima é mínima mesmo? Ajusta o sistema, não a desculpa.</p>`
+    : '<div class="card glass empty">Ativa um sistema pra ver a revisão.</div>'}`;
+}
+
+/* ---------- navegação ---------- */
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
+  S.view = b.dataset.v; document.body.dataset.view = S.view;
+  document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('act', x===b));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('act', v.id==='v-'+S.view));
+  scrollTo({top:0});
+});
+document.addEventListener('keydown', e => { if (e.key==='Escape') { closeM('m-sys'); closeM('m-day'); endIntro(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+
+let tt;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 2800); }
+
+/* ---------- auth + boot ---------- */
+async function signIn(){
+  const { error } = await sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: location.origin + location.pathname } });
+  if (error) toast(error.message);
+}
+async function signOut(){ await sb.auth.signOut(); }
+
+async function start(){
+  if (S.cloud && !S.user) { S.systems = []; S.logs = []; $('#login').classList.add('open'); return; }
+  $('#login').classList.remove('open');
+  await reload();
+}
+async function boot(){
+  if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
+    S.cloud = true;
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data:{ session } } = await sb.auth.getSession();
+    S.user = session?.user || null;
+    sb.auth.onAuthStateChange((_e, sess) => {
+      const prev = S.user?.id; S.user = sess?.user || null;
+      if (S.user?.id !== prev) start();
+    });
+  }
+  start();
+}
+boot();
+</script>
+</body>
+</html>
